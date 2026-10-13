@@ -103,5 +103,5 @@ It starts when you log in. For it to run without a login: `loginctl enable-linge
 - `packaging/` builds the downloads: `build_iperf3.sh` compiles the pinned iperf3 release,
   `package.py` freezes the app with PyInstaller and `smoke_test.py` runs a real test through the
   result. `.github/workflows/build.yml` runs all three on Windows and Linux, and publishes a
-  release when a version tag such as `v0.0.0.589` is pushed (keep `__version__` in `server.py` in
+  release when a version tag such as `v0.0.1.589` is pushed (keep `__version__` in `server.py` in
   step).

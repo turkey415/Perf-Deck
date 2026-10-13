@@ -26,7 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-__version__ = "0.0.0.589"
+__version__ = "0.0.1.589"
 __stage__ = "ALPHA"
 
 WINDOWS = os.name == "nt"
