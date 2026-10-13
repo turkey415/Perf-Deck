@@ -24,7 +24,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-__version__ = "1.0.0"
+__version__ = "0.0.0.589"
+__stage__ = "ALPHA"
 
 WINDOWS = os.name == "nt"
 FROZEN = getattr(sys, "frozen", False)  # running from a packaged build
@@ -607,7 +608,7 @@ def main():
     ap.add_argument("--no-autostart", action="store_true", help="do not start the iperf3 server on launch")
     ap.add_argument("--open", action="store_true", help="open the dashboard in a browser on launch")
     ap.add_argument("--no-browser", action="store_true", help="packaged builds: do not open a browser")
-    ap.add_argument("--version", action="version", version=f"iPerf Deck {__version__}")
+    ap.add_argument("--version", action="version", version=f"Perf-Deck {__version__} {__stage__}")
     args = ap.parse_args()
 
     if not IPERF:
@@ -634,7 +635,7 @@ def main():
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, stop)
 
-    print(f"iPerf Deck {__version__}: {url}  (iperf3 server on port {args.iperf_port})", flush=True)
+    print(f"Perf-Deck {__version__} {__stage__}: {url}  (iperf3 server on port {args.iperf_port})", flush=True)
     if FROZEN:
         print("Leave this window open while you use the dashboard. Close it to stop.", flush=True)
     if browse:

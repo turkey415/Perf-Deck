@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Freezes iPerf Deck with PyInstaller and archives it with the bundled iperf3.
 
-Run packaging/build_iperf3.sh first. Output: dist/iPerf-Deck-<version>-<platform>-x64.(zip|tar.gz)
+Run packaging/build_iperf3.sh first. Output: dist/Perf-Deck-<version>-<platform>-x64.(zip|tar.gz)
 """
 import os
 import re
@@ -31,7 +31,7 @@ def main():
     for name in ("README.md", "LICENSE", "THIRD-PARTY-NOTICES.md"):
         shutil.copy(REPO / name, app)
     platform = "windows" if WINDOWS else "linux"
-    archive = shutil.make_archive(str(REPO / "dist" / f"iPerf-Deck-{version}-{platform}-x64"),
+    archive = shutil.make_archive(str(REPO / "dist" / f"Perf-Deck-{version}-{platform}-x64"),
                                   "zip" if WINDOWS else "gztar", REPO / "dist", "iperf-deck")
     print(archive)
 

@@ -32,7 +32,7 @@ and Python, so there is nothing else to install.
   your browser; close the console window to stop. The build is not code-signed, so SmartScreen
   will ask you to confirm the first run, and Windows Firewall will ask whether iperf3 may accept
   connections (it must, for other machines to test against this one).
-- **Linux:** `tar xzf iPerf-Deck-*-linux-x64.tar.gz && ./iperf-deck/iperf-deck`. Needs glibc 2.35
+- **Linux:** `tar xzf Perf-Deck-*-linux-x64.tar.gz && ./iperf-deck/iperf-deck`. Needs glibc 2.35
   or newer (Ubuntu 22.04, Fedora 36, Debian 12 and later).
 
 Both take the same flags as `server.py` below, plus `--no-browser`. Licences for the bundled
@@ -79,4 +79,5 @@ It starts when you log in. For it to run without a login: `loginctl enable-linge
 - `packaging/` builds the downloads: `build_iperf3.sh` compiles the pinned iperf3 release,
   `package.py` freezes the app with PyInstaller and `smoke_test.py` runs a real test through the
   result. `.github/workflows/build.yml` runs all three on Windows and Linux, and publishes a
-  release when a `v1.2.3` tag is pushed (keep `__version__` in `server.py` in step).
+  release when a version tag such as `v0.0.0.589` is pushed (keep `__version__` in `server.py` in
+  step).

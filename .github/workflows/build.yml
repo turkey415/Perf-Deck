@@ -1,6 +1,7 @@
 name: Build
 
-# Builds the Windows and Linux packages. A v1.2.3 tag also publishes them as a GitHub release.
+# Builds the Windows and Linux packages. A version tag (v0.0.0.589) also publishes them as a
+# GitHub release, marked as a pre-release while the project is in alpha.
 on:
   push:
     tags: ['v*.*.*']
@@ -74,4 +75,4 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" *.tar.gz *.zip --repo "$GITHUB_REPOSITORY" --title "iPerf Deck $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" *.tar.gz *.zip --repo "$GITHUB_REPOSITORY" --title "Perf-Deck ${GITHUB_REF_NAME#v} ALPHA" --prerelease --generate-notes
