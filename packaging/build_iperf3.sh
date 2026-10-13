@@ -19,6 +19,7 @@ cd "iperf-$VERSION"
 # Static libiperf and no OpenSSL, so the binary depends only on the C runtime.
 ./configure --disable-shared --without-openssl --without-sctp > /dev/null
 make -j"$(nproc)" > /dev/null
+set -x
 
 exe=src/iperf3
 [ -f src/iperf3.exe ] && exe=src/iperf3.exe
