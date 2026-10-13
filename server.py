@@ -6,6 +6,8 @@ interval is pushed to the browser over Server-Sent Events as it happens.
 """
 import argparse
 import csv
+import hashlib
+import hmac
 import io
 import json
 import os
@@ -24,7 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-__version__ = "0.0.0.589"
+__version__ = "0.0.1.589"
 __stage__ = "ALPHA"
 
 WINDOWS = os.name == "nt"
@@ -46,6 +48,23 @@ IPERF = find_iperf()
 HISTORY_FILE = DATA_DIR / "history.json"
 HISTORY_MAX = 300
 SPARK_POINTS = 48
+
+STATE_FILE = DATA_DIR / "state.json"
+
+# Station discovery: a small UDP broadcast every few seconds on the local network.
+TAG = "perf-deck"
+DISCOVERY_PORT = 52010
+BEACON_EVERY = 3
+PEER_TTL = 11
+MAX_PEERS = 256
+
+# Sweep: one short test per station, then a recharge that grows with each use.
+SWEEP_SECONDS = 2
+COOLDOWN_BASE = 300
+COOLDOWN_GROWTH = 1.5
+COOLDOWN_MAX = 1800
+COOLDOWN_FORGET = 3600  # quiet time after which the recharge drops back to the base length
+OVERRIDE_SHA256 = "86ba9b49356885bb56e784adc81cf7550d6fea5b4fa4db30127c377345abcbba"
 
 HOST_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._:%-]{0,252}$")
 RATE_RE = re.compile(r"^\d+(\.\d+)?[KMGkmg]?$")
@@ -212,6 +231,28 @@ class App:
         self.server = Runner(self, "server")
         self.client = Runner(self, "client")
         self.load_history()
+        self.load_state()
+        self.discovery = Discovery(self)
+        self.sweep = Sweep(self)
+
+    def load_state(self):
+        try:
+            saved = json.loads(STATE_FILE.read_text())
+        except (OSError, ValueError):
+            saved = {}
+        sid = saved.get("id")
+        self.state = {
+            "id": sid if isinstance(sid, str) and re.fullmatch(r"[0-9a-f]{12}", sid) else uuid.uuid4().hex[:12],
+            "discovery": saved.get("discovery") is not False,
+            "sweep_count": saved.get("sweep_count") if isinstance(saved.get("sweep_count"), int) else 0,
+            "sweep_ended": saved.get("sweep_ended") if isinstance(saved.get("sweep_ended"), (int, float)) else 0,
+        }
+
+    def save_state(self):
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = STATE_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self.state))
+        tmp.replace(STATE_FILE)
 
     def load_history(self):
         try:
@@ -248,6 +289,9 @@ class App:
                 "live": list(self.live.values()),
                 "history": [light(s) for s in self.history],
                 "host": host_info(),
+                "peers": self.discovery.public(),
+                "sweep": self.sweep.status(),
+                "discovery": {"enabled": self.state["discovery"], "port": DISCOVERY_PORT, "error": self.discovery.error},
             }
 
     def find(self, sid):
@@ -410,6 +454,265 @@ class Runner:
         app.publish("session_end", session=sess, kept=bool(sess["points"]))
 
 
+class Discovery:
+    """Announces this station on the LAN and keeps a list of the others it hears."""
+
+    def __init__(self, app):
+        self.app = app
+        self.peers = {}
+        self.pings = {}
+        self.error = None
+        self.sock = self.psock = None
+
+    def start(self):
+        try:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            self.sock.bind(("", DISCOVERY_PORT))
+            # Pings go to a port of our own so two copies on one machine don't steal each other's.
+            self.psock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.psock.bind(("", 0))
+        except OSError as e:
+            self.error = f"Could not open UDP port {DISCOVERY_PORT}: {e}"
+            return
+        for fn in (self._listen, self._unicast, self._beacon):
+            threading.Thread(target=fn, daemon=True).start()
+
+    @staticmethod
+    def _parse(data):
+        if len(data) > 1024:
+            return None
+        try:
+            msg = json.loads(data)
+        except ValueError:
+            return None
+        return msg if isinstance(msg, dict) and msg.get("app") == TAG else None
+
+    def _listen(self):
+        while True:
+            try:
+                data, addr = self.sock.recvfrom(2048)
+            except OSError:
+                time.sleep(1)
+                continue
+            msg = self._parse(data)
+            if msg and msg.get("t") == "hello" and self.app.state["discovery"]:
+                self._hello(msg, addr[0])
+
+    def _hello(self, m, ip):
+        pid, port, pport, ago = m.get("id"), m.get("iperf"), m.get("ping"), m.get("sweep_ago")
+        if not isinstance(pid, str) or not re.fullmatch(r"[0-9a-f]{12}", pid) or pid == self.app.state["id"]:
+            return
+        if not all(isinstance(v, int) and 0 < v < 65536 for v in (port, pport)):
+            return
+        with self.app.lock:
+            if pid not in self.peers and len(self.peers) >= MAX_PEERS:
+                return
+            now = time.time()
+            # The address is where the packet came from, never what the packet claims.
+            self.peers.setdefault(pid, {"id": pid, "ping_ms": None, "rtts": []}).update(
+                name=re.sub(r"[^\w .\-]", "", str(m.get("name") or ""))[:40] or ip,
+                ip=ip, port=port, ping_port=pport, seen=now,
+                running=bool(m.get("running")), busy=bool(m.get("busy")), sweeping=bool(m.get("sweeping")),
+                version=re.sub(r"[^\w.\-]", "", str(m.get("version") or ""))[:20],
+                os=re.sub(r"[^\w]", "", str(m.get("os") or ""))[:12],
+                swept=now - ago if isinstance(ago, (int, float)) and ago >= 0 else None)
+
+    def _unicast(self):
+        while True:
+            try:
+                data, addr = self.psock.recvfrom(2048)
+            except OSError:
+                time.sleep(1)
+                continue
+            msg = self._parse(data)
+            if not msg or not isinstance(msg.get("n"), str) or len(msg["n"]) > 32:
+                continue
+            if msg.get("t") == "ping":
+                try:
+                    self.psock.sendto(json.dumps({"app": TAG, "t": "pong", "n": msg["n"]}).encode(), addr)
+                except OSError:
+                    pass
+            elif msg.get("t") == "pong":
+                with self.app.lock:
+                    sent = self.pings.pop(msg["n"], None)
+                    peer = sent and self.peers.get(sent[0])
+                    if peer and peer["ip"] == addr[0]:
+                        # Best of the last few: Python's own scheduling adds jitter to a single sample.
+                        peer["rtts"] = (peer["rtts"] + [(time.perf_counter() - sent[1]) * 1000])[-5:]
+                        peer["ping_ms"] = round(min(peer["rtts"]), 2)
+
+    def _beacon(self):
+        while True:
+            try:
+                if self.app.state["discovery"]:
+                    self._announce()
+                with self.app.lock:
+                    now = time.time()
+                    if not self.app.state["discovery"]:
+                        self.peers.clear()
+                    for pid in [pid for pid, p in self.peers.items() if now - p["seen"] > PEER_TTL]:
+                        del self.peers[pid]
+                    self.pings = {n: v for n, v in self.pings.items() if time.perf_counter() - v[1] < 10}
+                    self.app.publish("peers", peers=self.public(), sweep=self.app.sweep.status())
+            except Exception as e:  # a bad interface must not end discovery
+                self.error = str(e)
+            time.sleep(BEACON_EVERY)
+
+    def _announce(self):
+        app = self.app
+        ended = app.state["sweep_ended"]
+        hello = json.dumps({
+            "app": TAG, "t": "hello", "id": app.state["id"], "name": socket.gethostname(),
+            "iperf": app.status["server"]["port"], "ping": self.psock.getsockname()[1],
+            "running": app.status["server"]["running"], "busy": bool(app.live),
+            "sweeping": app.sweep.running and not app.sweep.override_run,
+            "sweep_ago": round(time.time() - ended) if ended else None,
+            "version": __version__, "os": "windows" if WINDOWS else sys.platform,
+        }).encode()
+        addrs = host_info()["addresses"]
+        directed = [a["broadcast"] for a in addrs if a.get("broadcast")]
+        if directed:
+            for target in directed:
+                self._send(self.sock, hello, target)
+        else:
+            # No per-interface broadcast addresses known (Windows): send once out of each address.
+            self._send(self.sock, hello, "255.255.255.255")
+            for a in addrs:
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as out:
+                        out.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                        out.bind((a["ip"], 0))
+                        out.sendto(hello, ("255.255.255.255", DISCOVERY_PORT))
+                except OSError:
+                    pass
+        with app.lock:
+            peers = list(self.peers.values())
+        for p in peers:
+            nonce = uuid.uuid4().hex[:16]
+            with app.lock:
+                self.pings[nonce] = (p["id"], time.perf_counter())
+            try:
+                self.psock.sendto(json.dumps({"app": TAG, "t": "ping", "n": nonce}).encode(), (p["ip"], p["ping_port"]))
+            except OSError:
+                pass
+
+    @staticmethod
+    def _send(sock, data, target):
+        try:
+            sock.sendto(data, (target, DISCOVERY_PORT))
+        except OSError:
+            pass
+
+    def public(self):
+        keys = ("id", "name", "ip", "port", "running", "busy", "sweeping", "version", "os", "ping_ms")
+        with self.app.lock:
+            return sorted(({k: p[k] for k in keys} for p in self.peers.values()), key=lambda p: (p["name"].lower(), p["ip"]))
+
+
+class Sweep:
+    """One short test against every station in turn, rate-limited so it cannot be spammed."""
+
+    def __init__(self, app):
+        self.app = app
+        self.running = False
+        self.cancel = False
+        self.override = False      # the access code has been entered: no recharge applies
+        self.override_run = False  # the sweep in progress was started under the override
+        self.results = []
+        self.started = self.ended = None
+
+    def cooldown(self):
+        app, now = self.app, time.time()
+        n, ended = app.state["sweep_count"], app.state["sweep_ended"]
+        total = min(COOLDOWN_MAX, COOLDOWN_BASE * COOLDOWN_GROWTH ** (n - 1)) if n else 0
+        cd = {"left": max(0, ended + total - now), "total": total, "reason": None, "by": None}
+        if cd["left"]:
+            cd["reason"] = "own"
+        # Every station honours a base recharge after anyone's sweep, and waits while one is running.
+        for p in app.discovery.peers.values():
+            if p["sweeping"]:
+                return {"left": cd["left"], "total": cd["total"], "reason": "busy", "by": p["name"]}
+            if p.get("swept") and COOLDOWN_BASE - (now - p["swept"]) > cd["left"]:
+                cd = {"left": COOLDOWN_BASE - (now - p["swept"]), "total": COOLDOWN_BASE, "reason": "lan", "by": p["name"]}
+        return cd
+
+    def status(self):
+        with self.app.lock:
+            n = self.app.state["sweep_count"]
+            return {"running": self.running, "results": self.results, "started": self.started, "ended": self.ended,
+                    "cooldown": self.cooldown(), "override": self.override, "uses": n, "seconds": SWEEP_SECONDS,
+                    "next": min(COOLDOWN_MAX, COOLDOWN_BASE * COOLDOWN_GROWTH ** n)}
+
+    def start(self):
+        app = self.app
+        with app.lock:
+            if self.running:
+                raise ValueError("A sweep is already running.")
+            if app.status["client"]["running"]:
+                raise ValueError("Wait for the running test to finish first.")
+            targets = [p for p in app.discovery.public() if p["running"]]
+            if not targets:
+                raise ValueError("No stations with a running iperf3 server to sweep.")
+            cd = self.cooldown()
+            if not self.override and cd["reason"] == "busy":
+                raise ValueError(f"{cd['by']} is sweeping right now.")
+            if not self.override and cd["left"] > 0:
+                raise ValueError("Still recharging.")
+            self.running, self.cancel, self.override_run = True, False, self.override
+            self.started, self.ended = time.time(), None
+            self.results = [{"id": p["id"], "name": p["name"], "ip": p["ip"], "port": p["port"],
+                             "status": "queued", "bps": None, "retr": None, "error": None} for p in targets]
+            app.publish("sweep", sweep=self.status())
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        app = self.app
+        try:
+            for attempt in (1, 2):  # stations that were busy get one more try at the end
+                for r in self.results:
+                    if r["status"] in ("queued", "busy") and not self.cancel:
+                        if attempt == 2:
+                            time.sleep(1)
+                        self._test(r)
+            for r in self.results:
+                if r["status"] == "queued":
+                    r["status"] = "skipped"
+        finally:
+            with app.lock:
+                now = time.time()
+                if not self.override_run:
+                    n, ended = app.state["sweep_count"], app.state["sweep_ended"]
+                    last = min(COOLDOWN_MAX, COOLDOWN_BASE * COOLDOWN_GROWTH ** (n - 1)) if n else 0
+                    if now - ended > last + COOLDOWN_FORGET:
+                        n = 0
+                    app.state.update(sweep_count=n + 1, sweep_ended=now)
+                    app.save_state()
+                self.running, self.override_run, self.ended = False, False, now
+                app.publish("sweep", sweep=self.status())
+
+    def _test(self, r):
+        app = self.app
+        r["status"] = "testing"
+        app.publish("sweep", sweep=self.status())
+        # Reverse mode: the station sends, so this measures its speed to us.
+        argv = [IPERF, "-c", r["ip"], "-p", str(r["port"]), "-t", str(SWEEP_SECONDS), "-R", "-J", "--connect-timeout", "2000"]
+        try:
+            out = subprocess.run(argv, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=SWEEP_SECONDS + 10).stdout
+            data = json.loads(out)
+            if data.get("error"):
+                raise ValueError(str(data["error"]).removeprefix("error - "))
+            end = data["end"]
+            r.update(status="done", bps=end["sum_received"]["bits_per_second"], retr=end["sum_sent"].get("retransmits"))
+        except subprocess.TimeoutExpired:
+            r.update(status="failed", error="No answer in time")
+        except (OSError, ValueError, KeyError, TypeError) as e:
+            busy = "busy" in str(e).lower()
+            r.update(status="busy" if busy else "failed", error=str(e)[:160] or "No result")
+        app.publish("sweep", sweep=self.status())
+
+
 def int_in(value, lo, hi, name):
     try:
         n = int(value)
@@ -433,7 +736,7 @@ def host_info():
             if "LOOPBACK" in link.get("flags", []) or link.get("operstate") == "DOWN":
                 continue
             for a in link.get("addr_info", []):
-                addrs.append({"ifname": link.get("ifname"), "ip": a.get("local")})
+                addrs.append({"ifname": link.get("ifname"), "ip": a.get("local"), "broadcast": a.get("broadcast")})
     except (OSError, ValueError, subprocess.SubprocessError):
         pass
     if not addrs:  # no `ip` command (Windows, macOS): ask the socket layer instead
@@ -575,6 +878,29 @@ class Handler(BaseHTTPRequestHandler):
                 app.start_client(body)
             elif method == "POST" and path == "/api/client/stop":
                 app.client.stop()
+            elif method == "POST" and path == "/api/sweep/start":
+                app.sweep.start()
+            elif method == "POST" and path == "/api/sweep/stop":
+                app.sweep.cancel = True
+            elif method == "POST" and path == "/api/override":
+                code = hashlib.sha256(str(body.get("code") or "").strip().lower().encode()).hexdigest()
+                if body.get("off"):
+                    app.sweep.override = False
+                elif hmac.compare_digest(code, OVERRIDE_SHA256):
+                    app.sweep.override = True
+                else:
+                    time.sleep(1)
+                    raise ValueError("Access denied.")
+                app.publish("sweep", sweep=app.sweep.status())
+            elif method == "POST" and path == "/api/discovery":
+                with app.lock:
+                    app.state["discovery"] = bool(body.get("enabled"))
+                    app.save_state()
+                    if not app.state["discovery"]:
+                        app.discovery.peers.clear()
+                    app.publish("discovery", discovery={"enabled": app.state["discovery"], "port": DISCOVERY_PORT,
+                                                         "error": app.discovery.error},
+                                peers=app.discovery.public(), sweep=app.sweep.status())
             elif method == "DELETE" and path == "/api/history":
                 with app.lock:
                     app.history.clear()
@@ -606,6 +932,7 @@ def main():
     ap.add_argument("--port", type=int, default=8520, help="dashboard port (default 8520)")
     ap.add_argument("--iperf-port", type=int, default=5201, help="iperf3 server port (default 5201)")
     ap.add_argument("--no-autostart", action="store_true", help="do not start the iperf3 server on launch")
+    ap.add_argument("--no-discovery", action="store_true", help="do not announce on, or listen to, the LAN")
     ap.add_argument("--open", action="store_true", help="open the dashboard in a browser on launch")
     ap.add_argument("--no-browser", action="store_true", help="packaged builds: do not open a browser")
     ap.add_argument("--version", action="version", version=f"Perf-Deck {__version__} {__stage__}")
@@ -630,6 +957,11 @@ def main():
             app.start_server(args.iperf_port)
         except ValueError as e:
             print(e)
+
+    if args.no_discovery:
+        app.discovery.error = "Turned off with --no-discovery"
+    else:
+        app.discovery.start()
 
     def stop(*_):
         raise KeyboardInterrupt
