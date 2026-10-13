@@ -4,6 +4,12 @@ An iperf3 server with a live web dashboard: a dark instrument panel that shows e
 runs. Python standard library only, one HTML file, no build step and nothing loaded from the
 internet, so it works on an offline LAN.
 
+![A test running on the dashboard: receive and send dials, needle meters and counters updating live](docs/live-test.gif)
+
+A send-and-receive test against a laptop on a lossy link. The pictures on this page were recorded
+on a simulated four-station network. [Full-size still](docs/live-test.png) ·
+[video](docs/live-test.mp4)
+
 ## What it shows
 
 - **Receive and Send dials** with a peak marker, auto-ranging scale and seven-segment readouts for
@@ -16,6 +22,13 @@ internet, so it works on an offline LAN.
   jitter and loss, with a hover readout.
 - **History** of the last 300 tests, with CSV and JSON export.
 
+<details>
+<summary>A finished test, with every chart (tall screenshot)</summary>
+
+![A finished test: instruments, throughput, per-stream, retransmit, round-trip and congestion window charts, test details and the waterfall](docs/result-charts.png)
+
+</details>
+
 - **Front panel** in the style of a radio: RX and TX lamps that light while traffic flows, status
   and warning lamps (link, CQ, busy, sweep, retransmits, loss, jitter, CPU), a log-scale signal
   meter and a waterfall of recent tests.
@@ -27,7 +40,11 @@ Every Perf-Deck announces itself on the local network ("CQ") with a small UDP br
 **Test** on a station to run a full test against it without typing an address.
 
 **Sweep all** runs one 2-second test against every station in turn, with each station sending to
-this machine, and shows the results side by side. To stop a busy network being hammered:
+this machine, and shows the results side by side.
+
+![A sweep testing four stations in turn, then starting its recharge countdown](docs/sweep.gif)
+
+To stop a busy network being hammered:
 
 - A sweep is followed by a recharge of 5 minutes, which grows by half after every sweep (up to 30
   minutes) and drops back after an hour without one.
