@@ -22,13 +22,31 @@ as one run, so meters that one direction cannot measure keep the reading from th
 You can also start tests from the page: target host, port, length, streams, bitrate cap, TCP or
 UDP, and send, receive or both.
 
-## Requirements
+## Download
+
+Packaged builds for Windows and Linux are on the
+[Releases page](https://github.com/turkey415/Perf-Deck/releases). They include their own iperf3
+and Python, so there is nothing else to install.
+
+- **Windows:** unzip, then run `iperf-deck.exe`. A console window opens and the dashboard opens in
+  your browser; close the console window to stop. The build is not code-signed, so SmartScreen
+  will ask you to confirm the first run, and Windows Firewall will ask whether iperf3 may accept
+  connections (it must, for other machines to test against this one).
+- **Linux:** `tar xzf Perf-Deck-*-linux-x64.tar.gz && ./iperf-deck/iperf-deck`. Needs glibc 2.35
+  or newer (Ubuntu 22.04, Fedora 36, Debian 12 and later).
+
+Both take the same flags as `server.py` below, plus `--no-browser`. Licences for the bundled
+software are in `THIRD-PARTY-NOTICES.md`.
+
+## Run from source
+
+### Requirements
 
 - Python 3.9 or newer
 - iperf3 3.17 or newer (it needs `--json-stream`)
 - Linux (it uses `ip` to list this machine's addresses)
 
-## Run it
+### Run it
 
     python3 server.py                     # dashboard on http://127.0.0.1:8520, iperf3 server on 5201
     python3 server.py --listen 0.0.0.0    # let other machines on the LAN open the dashboard
@@ -41,7 +59,7 @@ retransmits, round-trip time and congestion window are only reported by whicheve
 The dashboard has no login. Anyone who can reach it can start and stop tests from this machine,
 which is why it binds to localhost unless told otherwise.
 
-## Run it as a service
+### Run it as a service
 
 With the repo cloned to `~/iperf-deck`:
 
@@ -57,4 +75,9 @@ It starts when you log in. For it to run without a login: `loginctl enable-linge
 - `server.py` runs iperf3, turns its event stream into sessions and serves the page and API.
 - `index.html` is the whole interface. It is read from disk on each request, so edits only need a
   browser refresh.
-- Results are kept in `~/.local/share/iperf-deck/history.json`.
+- Results are kept in `~/.local/share/iperf-deck/history.json` (`%APPDATA%\\iPerf Deck` on Windows).
+- `packaging/` builds the downloads: `build_iperf3.sh` compiles the pinned iperf3 release,
+  `package.py` freezes the app with PyInstaller and `smoke_test.py` runs a real test through the
+  result. `.github/workflows/build.yml` runs all three on Windows and Linux, and publishes a
+  release when a version tag such as `v0.0.0.589` is pushed (keep `__version__` in `server.py` in
+  step).

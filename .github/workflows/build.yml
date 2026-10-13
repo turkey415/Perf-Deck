@@ -1,0 +1,78 @@
+name: Build
+
+# Builds the Windows and Linux packages. A version tag (v0.0.0.589) also publishes them as a
+# GitHub release, marked as a pre-release while the project is in alpha.
+on:
+  push:
+    tags: ['v*.*.*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build iperf3
+        run: bash packaging/build_iperf3.sh
+      - name: Package
+        run: |
+          pip install pyinstaller==6.22.3
+          python packaging/package.py
+      - name: Smoke test
+        run: python packaging/smoke_test.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-2022
+    steps:
+      - run: git config --global core.autocrlf input
+      - uses: actions/checkout@v4
+      - uses: cygwin/cygwin-install-action@v6
+        with:
+          packages: gcc-core make curl
+      - name: Build iperf3
+        shell: C:\cygwin\bin\bash.exe --login -eo pipefail -o igncr '{0}'
+        env:
+          CHERE_INVOKING: 1
+        run: |
+          bash packaging/build_iperf3.sh
+          curl -fsSL -o vendor/iperf3/COPYING.LESSER.txt https://www.gnu.org/licenses/lgpl-3.0.txt
+          curl -fsSL -o vendor/iperf3/COPYING.txt https://www.gnu.org/licenses/gpl-3.0.txt
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Package
+        run: |
+          pip install pyinstaller==6.22.3
+          python packaging/package.py
+      - name: Smoke test
+        run: python packaging/smoke_test.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" *.tar.gz *.zip --repo "$GITHUB_REPOSITORY" --title "Perf-Deck ${GITHUB_REF_NAME#v} ALPHA" --prerelease --generate-notes
