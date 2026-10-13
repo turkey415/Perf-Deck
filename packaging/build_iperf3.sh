@@ -19,9 +19,7 @@ cd "iperf-$VERSION"
 # Static libiperf and no OpenSSL, so the binary depends only on the C runtime.
 ./configure --disable-shared --without-openssl --without-sctp > /dev/null
 make -j"$(nproc)" > /dev/null
-set -x
 
-ls -la src/ | grep -i iperf3 || true; ldd src/iperf3.exe || true; src/iperf3.exe --version || echo "direct run failed: $?"; ls -la src/.libs 2>/dev/null | head || true
 exe=src/iperf3
 [ -f src/iperf3.exe ] && exe=src/iperf3.exe
 rm -rf "$out"
@@ -36,6 +34,7 @@ if [ "$(uname -o)" = Cygwin ]; then
     uname -r > "$out/cygwin-version.txt"
 fi
 
-ls -la "$out"; cygcheck "$out/$(basename "$exe")" || true
-"$out/$(basename "$exe")" --version
+# Version check on the build-tree binary: under Cygwin the vendored copy sits beside a second
+# cygwin1.dll and cannot be launched from this shell. packaging/smoke_test.py runs the real one.
+"$exe" --version
 ls -la "$out"
