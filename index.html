@@ -257,6 +257,75 @@ th:first-child, td:first-child { text-align: left; }
 .vbtns button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .vbtns button.act { --b: var(--c); color: color-mix(in srgb, var(--b) 60%, #fff); border-color: var(--b); background: color-mix(in srgb, var(--b) 16%, #191918); box-shadow: 0 0 8px color-mix(in srgb, var(--b) 45%, transparent); }
 .vbtns button.hold.act { --b: var(--amber); }
+
+/* ---------- radio front panel, stations, sweep ---------- */
+.rig { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 26px; padding: 12px 16px; background: linear-gradient(180deg, #232322, #191918); }
+.lamps { display: flex; flex-wrap: wrap; gap: 8px 6px; }
+.lamp2 { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 44px; padding: 6px 5px 5px; border-radius: 5px; background: #131312; border: 1px solid #2f2f2d; cursor: default; }
+.lamp2 i { width: 16px; height: 7px; border-radius: 2px; background: #33332f; box-shadow: inset 0 1px 1px rgba(0, 0, 0, .6); }
+.lamp2 span { font: 600 9px ui-monospace, Menlo, Consolas, monospace; letter-spacing: .1em; color: var(--muted); }
+.lamp2.on i { background: var(--lc, #3ddc5a); box-shadow: 0 0 9px var(--lc, #3ddc5a); }
+.lamp2.on span { color: var(--text); }
+.lamp2.warn { --lc: #fab219; } .lamp2.crit { --lc: #ff4d4d; }
+.lamp2.blink i { animation: pulse .7s steps(2, jump-none) infinite; }
+.sep { width: 1px; align-self: stretch; background: #33332f; margin: 0 4px; }
+.smeter { flex: 1; min-width: min(360px, 100%); display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; }
+.smeter .leds i { height: 13px; }
+.smeter .leds i { --c: #d9e6f7; } .smeter .leds i:nth-child(n+31) { --c: #ff4d4d; }
+.sm-scale { grid-column: 2; display: flex; justify-content: space-between; font: 9px ui-monospace, Menlo, Consolas, monospace; color: var(--muted); letter-spacing: .06em; }
+.smeter .seg7 { height: 20px; }
+
+.stations h2 { margin-bottom: 14px; }
+.cq { font: 600 10px ui-monospace, Menlo, Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px;
+  color: var(--text-2); background: linear-gradient(#262625, #1b1b1a); border: 1px solid #3a3a37; border-radius: 4px; cursor: pointer; }
+.cq i, .fire i, .vbtns button::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #3a3a37; display: inline-block; flex: none; }
+.cq.on i { background: #3ddc5a; box-shadow: 0 0 7px #3ddc5a; }
+.vbtns button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 5px 0 6px; }
+.vbtns button::before { width: 5px; height: 5px; }
+.vbtns button.act::before { background: var(--b); box-shadow: 0 0 6px var(--b); }
+.st-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+@media (max-width: 1150px) { .st-grid { grid-template-columns: minmax(0, 1fr); } }
+.st-list { display: flex; flex-direction: column; gap: 6px; }
+.strow { display: grid; grid-template-columns: 12px minmax(170px, 1.7fr) 64px minmax(70px, 1fr) 118px 84px auto; gap: 12px; align-items: center; padding: 9px 12px; background: var(--well); border: 1px solid rgba(255, 255, 255, .06); border-radius: 8px; }
+.strow .who b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strow .who .k { display: block; overflow: hidden; text-overflow: ellipsis; letter-spacing: .06em; text-transform: none; }
+.strow .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.strow .num small { display: block; color: var(--muted); font-size: 11px; }
+.strow .leds i { height: 12px; --c: var(--accent); }
+.strow .btn { padding: 5px 10px; }
+.sled { width: 10px; height: 10px; border-radius: 50%; background: #3a3a37; }
+.sled.ready { background: #3ddc5a; box-shadow: 0 0 7px #3ddc5a; }
+.sled.busy { background: #fab219; box-shadow: 0 0 7px #fab219; }
+.sled.testing { background: #ff4d4d; box-shadow: 0 0 8px #ff4d4d; animation: pulse .5s steps(2, jump-none) infinite; }
+@media (max-width: 760px) { .strow { grid-template-columns: 12px minmax(0, 1fr) auto auto; } .strow .bar, .strow .ping, .strow .state { display: none; } }
+
+.reactor { background: var(--well); border: 1px solid rgba(255, 255, 255, .06); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 11px; --rc: #fab219; }
+.reactor.ready { --rc: #3ddc5a; } .reactor.firing { --rc: #ff4d4d; } .reactor.locked { --rc: #6b6a65; } .reactor.armed { --rc: #ff8a3d; }
+.reactor .top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.reactor .seg7 { height: 30px; --c: var(--rc); }
+.cells { display: flex; gap: 3px; padding: 5px; background: #0c0c0b; border: 1px solid #2f2f2d; border-radius: 6px; }
+.cells i { flex: 1; height: 26px; border-radius: 2px; background: #242422; transition: background .3s, box-shadow .3s; }
+.cells i.on { background: var(--rc); box-shadow: 0 0 8px color-mix(in srgb, var(--rc) 70%, transparent); }
+.cells i.lead { background: color-mix(in srgb, var(--rc) 55%, #242422); animation: pulse .9s ease-in-out infinite; }
+.reactor.ready .cells i.on { animation: glow 2.4s ease-in-out infinite; }
+@keyframes glow { 50% { box-shadow: 0 0 14px var(--rc); } }
+.rstate { font: 600 11px ui-monospace, Menlo, Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; color: color-mix(in srgb, var(--rc) 75%, #fff); }
+.fire { font: 700 13px ui-monospace, Menlo, Consolas, monospace; letter-spacing: .2em; text-transform: uppercase; padding: 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+  color: var(--text); background: linear-gradient(#34342f, #23231f); border: 1px solid #55544f; box-shadow: 0 2px 0 #0c0c0b; }
+.fire:not(:disabled):hover { border-color: var(--rc); }
+.fire:not(:disabled) i { background: var(--rc); box-shadow: 0 0 8px var(--rc); }
+.fire:disabled { color: #6b6a65; cursor: not-allowed; }
+.reactor .fine { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.ovr { display: flex; gap: 6px; align-items: center; }
+.ovr input { font: 12px ui-monospace, Menlo, Consolas, monospace; letter-spacing: .12em; padding: 5px 8px; }
+.linkbtn { background: none; border: 0; padding: 0; cursor: pointer; font: 600 9.5px ui-monospace, Menlo, Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.linkbtn:hover { color: var(--text-2); }
+
+.wf { position: relative; height: 200px; background: #07080c; border: 1px solid #2f2f2d; border-radius: 6px; overflow: hidden; cursor: pointer; }
+.wf canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.wf-key { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--muted); font-size: 12px; }
+.wf-key i { width: 120px; height: 8px; border-radius: 2px; background: linear-gradient(90deg, #0a0e1c, #102a6e, #286edc, #5abeff, #e6f5ff); }
+@media (prefers-reduced-motion: reduce) { .lamp2.blink i, .sled.testing, .cells i.lead, .reactor.ready .cells i.on { animation: none; } }
 </style>
 </head>
 <body>
@@ -321,6 +390,36 @@ th:first-child, td:first-child { text-align: left; }
   </aside>
 
   <main>
+    <section class="card rig" aria-label="Status panel">
+      <div class="lamps" id="lamps"></div>
+      <div class="smeter">
+        <span class="k">Signal</span><div class="leds" id="sm"></div><div id="sm-rd"></div>
+        <div class="sm-scale"><span>100K</span><span>1M</span><span>10M</span><span>100M</span><span>1G</span><span>10G</span><span>100G</span></div>
+      </div>
+    </section>
+
+    <section class="card stations">
+      <h2>Stations on this network <span class="badge" id="st-count">0</span><span class="spacer"></span>
+        <button class="cq" id="cqbtn" type="button" title="Announce this machine on the local network and listen for others"><i></i><span>CQ</span></button></h2>
+      <div class="st-grid">
+        <div>
+          <div class="st-list" id="st-list"></div>
+          <div class="msg" id="st-err" hidden style="margin-top:10px"></div>
+        </div>
+        <div class="reactor" id="reactor">
+          <div class="top"><span class="rstate" id="r-state"></span><div id="r-rd"></div></div>
+          <div class="cells" id="cells"></div>
+          <button class="fire" id="fire" type="button"><i></i><span id="fire-t">Sweep all</span></button>
+          <div class="fine" id="r-fine"></div>
+          <div class="ovr">
+            <button class="linkbtn" id="ovr-btn" type="button">Override</button>
+            <form id="ovr-form" hidden style="display:flex;gap:6px;flex:1"><input type="password" id="ovr-code" placeholder="ACCESS CODE" autocomplete="off" aria-label="Access code"><button class="btn" type="submit">Enter</button></form>
+            <span class="k" id="ovr-msg"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="card idle" id="idle" hidden>
       <svg width="46" height="46" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#2b2b29"/><path d="M5 22l6-8 5 4 6-10 5 6" fill="none" stroke="#898781" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <h1>No tests yet</h1>
@@ -383,6 +482,12 @@ th:first-child, td:first-child { text-align: left; }
 
       <details class="card" id="tbl"><summary>Interval data</summary><div class="tablewrap"><table id="tbl-body"></table></div></details>
     </div>
+
+    <section class="card">
+      <h2>Waterfall</h2>
+      <div class="wf" id="wf" role="img" aria-label="Heat map of recent tests"><canvas></canvas></div>
+      <div class="wf-key"><span>slower</span><i></i><span>faster</span><span style="margin-left:auto">One row per test, newest on top. Left to right is start to finish. Click a row to open it.</span></div>
+    </section>
   </main>
 </div>
 
@@ -561,7 +666,7 @@ const cJit = new Chart('#c-jit', { axis: v => parseFloat(v.toPrecision(3)) + '',
 const cLoss = new Chart('#c-loss', { bar: true, minTop: 1, axis: v => parseFloat(v.toPrecision(3)) + '%', tip: v => v.toFixed(2) + '%' });
 
 // ---------- state ----------
-const st = { status: null, host: null, sessions: new Map(), history: [], viewId: null };
+const st = { status: null, host: null, sessions: new Map(), history: [], viewId: null, peers: [], sweep: null, discovery: null, cdAt: 0 };
 const isLive = s => s && s.status === 'running';
 const liveList = () => [...st.sessions.values()].filter(isLive).sort((a, b) => b.started - a.started);
 
@@ -950,7 +1055,154 @@ function renderTable() {
 }
 $('#tbl').addEventListener('toggle', renderTable);
 
-function render() { if (st.status) { renderSide(); renderMain(); } }
+function render() { if (st.status) { renderSide(); renderMain(); renderPanel(); renderStations(); drawWaterfall(); } }
+
+// ---------- front panel: status lamps and signal meter ----------
+const LAMPS = [
+  ['rx', 'RX', 'Lit while this machine is receiving test traffic'], ['tx', 'TX', 'Lit while this machine is sending test traffic'],
+  ['link', 'LINK', 'iperf3 server is listening'], ['cq', 'CQ', 'Announcing on the network and listening for other stations'],
+  ['busy', 'BUSY', 'A test is running'], ['sweep', 'SWEEP', 'A sweep of all stations is running'], ['ovrd', 'OVRD', 'Override armed: sweep recharge is bypassed'],
+  null,
+  ['retr', 'RETR', 'Retransmits in the test on screen: amber for any, red at 100 or more'], ['loss', 'LOSS', 'Packet loss in the test on screen: amber for any, red at 1% or more'],
+  ['jit', 'JIT', 'Jitter in the test on screen: amber at 5 ms, red at 30 ms'], ['cpu', 'CPU', 'CPU on either machine in the test on screen: amber at 80%, red at 95%'],
+];
+$('#lamps').innerHTML = LAMPS.map(l => l ? `<div class="lamp2" id="l-${l[0]}" title="${l[2]}"><i></i><span>${l[1]}</span></div>` : '<div class="sep"></div>').join('');
+$('#sm').innerHTML = '<i></i>'.repeat(36);
+function lamp(id, state, blink) { $('#l-' + id).className = 'lamp2' + (state ? ' on ' + (state === true ? '' : state) : '') + (blink ? ' blink' : ''); }
+function renderPanel() {
+  if (!st.status) return;
+  const live = liveList(), last = live.map(s => s.points.at(-1)).filter(Boolean);
+  const rx = sum(last.map(p => p.rx || 0)), tx = sum(last.map(p => p.tx || 0)), sv = st.status.server, sw = st.sweep || {};
+  lamp('rx', (rx > 0 || sw.running) && true, sw.running);
+  lamp('tx', tx > 0 && 'crit');
+  lamp('link', sv.running ? true : sv.error ? 'crit' : false);
+  lamp('cq', st.discovery && st.discovery.enabled ? (st.discovery.error ? 'crit' : true) : false);
+  lamp('busy', (live.length || st.status.client.running) && 'warn');
+  lamp('sweep', sw.running && 'crit', true);
+  lamp('ovrd', sw.override && 'warn');
+  const v = st.sessions.get(st.viewId), m = v ? calc(v) : {}, sm = (v && v.summary) || {}, udp = m.udp || {};
+  const grade = (x, warn, crit) => x >= crit ? 'crit' : x >= warn ? 'warn' : false;
+  lamp('retr', grade(m.retr || 0, 1, 100));
+  lamp('loss', grade(udp.lost_percent || 0, 1e-9, 1));
+  lamp('jit', grade(udp.jitter_ms || 0, 5, 30));
+  lamp('cpu', grade(Math.max(sm.cpu_host || 0, sm.cpu_remote || 0), 80, 95));
+  // Signal meter: log scale from 100 kbit/s to 100 Gbit/s, like an S-meter's dB steps.
+  const bps = rx + tx, f = bps > 0 ? clamp01((Math.log10(bps) - 5) / 6) : 0, lit = Math.round(f * 36);
+  [...$('#sm').children].forEach((e, i) => e.classList.toggle('on', i < lit));
+  const [t, u] = splitBps(bps);
+  $('#sm-rd').innerHTML = seg7(bps ? t : '0', 4);
+  $('#sm-rd').title = bps ? `${t} ${u}` : 'No test running';
+  $('#sm-rd').className = bps ? '' : 'off';
+}
+
+// ---------- stations and sweep ----------
+$('#cells').innerHTML = '<i></i>'.repeat(24);
+const mmss = t => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+function renderStations() {
+  if (!st.discovery) return;
+  const on = st.discovery.enabled, sw = st.sweep || { results: [] }, res = new Map(sw.results.map(r => [r.id, r]));
+  const top = Math.max(1, ...sw.results.map(r => r.bps || 0));
+  $('#cqbtn').className = 'cq' + (on ? ' on' : ''); $('#cqbtn').lastChild.textContent = on ? 'CQ on' : 'CQ off';
+  $('#st-count').textContent = st.peers.length;
+  $('#st-err').hidden = !st.discovery.error; $('#st-err').textContent = st.discovery.error || '';
+  $('#st-list').innerHTML = st.peers.map(p => {
+    const r = res.get(p.id), testing = r && r.status === 'testing';
+    const state = testing ? 'testing' : !p.running ? 'off' : p.busy || p.sweeping ? 'busy' : 'ready';
+    const word = testing ? 'Testing' : !p.running ? 'Server off' : p.sweeping ? 'Sweeping' : p.busy ? 'Busy' : 'Ready';
+    const lit = r && r.bps ? Math.max(1, Math.round(r.bps / top * 20)) : 0;
+    const rate = !r ? '<small>not swept yet</small>' : r.status === 'done' ? `${esc(fmtBps(r.bps))}<small>${r.retr == null ? 'to this machine' : r.retr + ' retransmits'}</small>`
+      : `<small title="${esc(r.error || '')}">${{ queued: 'queued', testing: 'testing…', busy: 'was busy', failed: 'no result', skipped: 'skipped' }[r.status]}</small>`;
+    return `<div class="strow"><span class="sled ${state}"></span>
+      <div class="who"><b>${esc(p.name)}</b><span class="k">${esc(p.ip)}:${p.port} · ${esc(p.os || '?')} · ${esc(p.version || '?')}</span></div>
+      <div class="num ping">${p.ping_ms == null ? '—' : esc(p.ping_ms < 10 ? p.ping_ms.toFixed(2) : p.ping_ms.toFixed(0))}<small>ms ping</small></div>
+      <div class="leds bar">${Array.from({ length: 20 }, (_, i) => `<i${i < lit ? ' class="on"' : ''}></i>`).join('')}</div>
+      <div class="num">${rate}</div><span class="k state">${word}</span>
+      <button class="btn" data-test="${p.id}"${p.running ? '' : ' disabled'}>Test</button></div>`;
+  }).join('') || `<div class="empty">${on ? 'Calling CQ… no other Perf-Deck stations heard yet. Any machine running Perf-Deck on this network segment appears here within a few seconds.' : 'CQ is off: this machine is not announcing itself or listening for others.'}</div>`;
+  tickReactor();
+}
+// Recharge display, redrawn four times a second from the last figures the server sent.
+function tickReactor() {
+  const sw = st.sweep;
+  if (!sw) return;
+  const cd = sw.cooldown, left = Math.max(0, cd.left - (performance.now() - st.cdAt) / 1000), targets = st.peers.filter(p => p.running).length;
+  const cells = [...$('#cells').children], N = cells.length;
+  let mode, frac, state, readout, fine, can = false;
+  if (sw.running) {
+    const done = sw.results.filter(r => !['queued', 'testing'].includes(r.status)).length;
+    mode = 'firing'; frac = 1 - done / Math.max(1, sw.results.length); state = `Sweeping · ${Math.min(done + 1, sw.results.length)} of ${sw.results.length}`;
+    readout = String(sw.results.length - done).padStart(2, '0'); fine = 'Each station sends to this machine in turn.'; can = true;
+  } else if (sw.override) {
+    mode = 'armed'; frac = 1; state = 'Override armed'; readout = '--:--'; fine = 'Recharge bypassed. Sweeps under override do not lock other stations.'; can = targets > 0;
+  } else if (cd.reason === 'busy') {
+    mode = 'locked'; frac = 0; state = 'Locked'; readout = '--:--'; fine = `${cd.by} is sweeping the network right now.`;
+  } else if (left > 0) {
+    mode = ''; frac = 1 - left / cd.total; state = 'Recharging'; readout = mmss(Math.ceil(left));
+    fine = cd.reason === 'lan' ? `${cd.by} swept the network, so every station waits.` : `Sweep ${sw.uses} used. The recharge grows with each sweep, up to 30 minutes.`;
+  } else {
+    mode = targets ? 'ready' : 'locked'; frac = 1; state = targets ? 'Charged · ready' : 'No stations in range'; readout = '00:00'; can = targets > 0;
+    fine = `One ${sw.seconds}-second test per station, about ${Math.max(1, targets) * (sw.seconds + 1)} s in all. Recharge afterwards: ${mmss(sw.next)}.`;
+  }
+  const lit = Math.floor(frac * N);
+  cells.forEach((e, i) => { e.className = i < lit ? 'on' : i === lit && mode === '' ? 'lead' : ''; });
+  $('#reactor').className = 'reactor ' + mode;
+  $('#r-state').textContent = state; $('#r-rd').innerHTML = seg7(readout, 4); $('#r-fine').textContent = fine;
+  $('#fire').disabled = !can; $('#fire-t').textContent = sw.running ? 'Abort sweep' : 'Sweep all';
+  $('#ovr-btn').textContent = sw.override ? 'Disarm override' : 'Override';
+}
+setInterval(tickReactor, 250);
+
+$('#cqbtn').onclick = () => api('POST', '/api/discovery', { enabled: !st.discovery.enabled });
+$('#fire').onclick = async () => {
+  try { await api('POST', st.sweep.running ? '/api/sweep/stop' : '/api/sweep/start'); }
+  catch (e) { $('#ovr-msg').textContent = e.message; setTimeout(() => $('#ovr-msg').textContent = '', 4000); }
+};
+$('#ovr-btn').onclick = () => {
+  if (st.sweep.override) return api('POST', '/api/override', { off: true });
+  const f = $('#ovr-form'); f.hidden = !f.hidden; if (!f.hidden) $('#ovr-code').focus();
+};
+$('#ovr-form').onsubmit = async e => {
+  e.preventDefault();
+  try { await api('POST', '/api/override', { code: $('#ovr-code').value }); $('#ovr-form').hidden = true; $('#ovr-msg').textContent = ''; }
+  catch (err) { $('#ovr-msg').textContent = 'Access denied'; }
+  $('#ovr-code').value = '';
+};
+$('#st-list').onclick = async e => {
+  const b = e.target.closest('[data-test]'), p = b && st.peers.find(x => x.id === b.dataset.test);
+  if (!p) return;
+  $('#f-host').value = p.ip; $('#f-port').value = p.port;
+  $('#runform').requestSubmit();
+};
+
+// ---------- waterfall of recent tests ----------
+const WF_ROW = 5, WF_STOPS = [[10, 14, 28], [16, 42, 110], [40, 110, 220], [90, 190, 255], [230, 245, 255]];
+function wfRows() {
+  const live = liveList().map(s => ({ id: s.id, vals: s.points.map(p => (p.tx || 0) + (p.rx || 0)), part: s.duration ? Math.min(1, calc(s).seconds / s.duration) : 1 }));
+  return [...live, ...st.history.map(s => ({ id: s.id, vals: s.spark || [], part: 1 }))].slice(0, 40);
+}
+function drawWaterfall() {
+  const host = $('#wf'), cv = $('canvas', host), W = host.clientWidth, H = host.clientHeight;
+  if (W < 20) return;
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(W, H), rows = wfRows();
+  const hi = Math.log10(Math.max(1e6, ...rows.flatMap(r => r.vals))), lo = hi - 3;
+  for (let y = 0; y < H; y++) {
+    const row = rows[Math.floor(y / WF_ROW)], gap = y % WF_ROW === WF_ROW - 1;
+    for (let x = 0; x < W; x++) {
+      let c = [7, 8, 12];
+      if (row && !gap && row.vals.length && x / W <= row.part) {
+        const v = row.vals[Math.min(row.vals.length - 1, Math.floor(x / (W * row.part) * row.vals.length))];
+        const f = v > 0 ? clamp01((Math.log10(v) - lo) / (hi - lo)) * (WF_STOPS.length - 1) : 0, i = Math.min(WF_STOPS.length - 2, Math.floor(f)), k = f - i;
+        c = WF_STOPS[i].map((a, j) => a + (WF_STOPS[i + 1][j] - a) * k);
+      }
+      const o = (y * W + x) * 4;
+      img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+new ResizeObserver(drawWaterfall).observe($('#wf'));
+$('#wf').onclick = e => { const r = wfRows()[Math.floor((e.clientY - $('#wf').getBoundingClientRect().top) / WF_ROW)]; if (r) select(r.id); };
 
 // ---------- actions ----------
 async function api(method, path, body) {
@@ -1009,13 +1261,19 @@ function connect() {
     const m = JSON.parse(ev.data);
     if (m.type === 'snapshot') {
       st.status = m.status; st.host = m.host; st.history = m.history;
+      st.peers = m.peers; st.sweep = m.sweep; st.discovery = m.discovery; st.cdAt = performance.now();
       for (const [id, s] of st.sessions) if (isLive(s)) st.sessions.delete(id);
       m.live.forEach(s => st.sessions.set(s.id, s));
       const cur = st.sessions.get(st.viewId);
       if (liveList().length || !cur || !st.history.some(h => h.id === st.viewId)) return fallback();
       render();
+    } else if (m.type === 'peers' || m.type === 'sweep' || m.type === 'discovery') {
+      if (m.peers) st.peers = m.peers;
+      if (m.discovery) st.discovery = m.discovery;
+      st.sweep = m.sweep; st.cdAt = performance.now();
+      renderStations(); renderPanel();
     } else if (m.type === 'status') {
-      st.status = m.status; renderSide();
+      st.status = m.status; renderSide(); renderPanel();
     } else if (m.type === 'session_start') {
       st.sessions.set(m.session.id, m.session); st.viewId = m.session.id; hoverT = null; render();
     } else if (m.type === 'point') {
@@ -1023,7 +1281,7 @@ function connect() {
       if (!s) return;
       s.points.push(m.point);
       if (m.sdir) s.sdir = m.sdir;
-      renderHistory();
+      renderHistory(); renderPanel(); drawWaterfall();
       if (st.viewId === m.id) renderMain();
     } else if (m.type === 'session_end') {
       if (m.kept) { st.sessions.set(m.session.id, m.session); st.history.unshift(lightOf(m.session)); render(); }
