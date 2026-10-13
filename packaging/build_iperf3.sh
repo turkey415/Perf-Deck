@@ -21,6 +21,7 @@ cd "iperf-$VERSION"
 make -j"$(nproc)" > /dev/null
 set -x
 
+ls -la src/ | grep -i iperf3 || true; ldd src/iperf3.exe || true; src/iperf3.exe --version || echo "direct run failed: $?"; ls -la src/.libs 2>/dev/null | head || true
 exe=src/iperf3
 [ -f src/iperf3.exe ] && exe=src/iperf3.exe
 rm -rf "$out"
@@ -35,5 +36,6 @@ if [ "$(uname -o)" = Cygwin ]; then
     uname -r > "$out/cygwin-version.txt"
 fi
 
+ls -la "$out"; cygcheck "$out/$(basename "$exe")" || true
 "$out/$(basename "$exe")" --version
 ls -la "$out"
