@@ -12,17 +12,36 @@ import os
 import queue
 import re
 import shutil
+import signal
 import socket
 import subprocess
+import sys
 import threading
 import time
 import uuid
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-ROOT = Path(__file__).resolve().parent
-DATA_DIR = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share") / "iperf-deck"
+__version__ = "1.0.0"
+
+WINDOWS = os.name == "nt"
+FROZEN = getattr(sys, "frozen", False)  # running from a packaged build
+ROOT = Path(getattr(sys, "_MEIPASS", None) or Path(__file__).resolve().parent)
+if WINDOWS:
+    DATA_DIR = Path(os.environ.get("APPDATA") or Path.home() / "AppData/Roaming") / "iPerf Deck"
+else:
+    DATA_DIR = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share") / "iperf-deck"
+
+
+def find_iperf():
+    """A packaged build carries its own iperf3; otherwise use the one on PATH."""
+    bundled = ROOT / "iperf3" / ("iperf3.exe" if WINDOWS else "iperf3")
+    return str(bundled) if bundled.is_file() else shutil.which("iperf3")
+
+
+IPERF = find_iperf()
 HISTORY_FILE = DATA_DIR / "history.json"
 HISTORY_MAX = 300
 SPARK_POINTS = 48
@@ -239,14 +258,14 @@ class App:
     def start_server(self, port):
         with self.lock:
             self.status["server"]["port"] = port
-            self.server.start(["iperf3", "-s", "-p", str(port), "--json-stream", "--forceflush"])
+            self.server.start([IPERF, "-s", "-p", str(port), "--json-stream", "--forceflush"])
 
     def start_client(self, opts):
         host = str(opts.get("host", "")).strip()
         if not HOST_RE.match(host):
             raise ValueError("Enter a hostname or IP address to test against.")
         port = int_in(opts.get("port", 5201), 1, 65535, "Port")
-        argv = ["iperf3", "-c", host, "-p", str(port),
+        argv = [IPERF, "-c", host, "-p", str(port),
                 "-t", str(int_in(opts.get("duration", 10), 1, 3600, "Duration")),
                 "-P", str(int_in(opts.get("streams", 1), 1, 32, "Streams")),
                 "--connect-timeout", "5000", "--json-stream", "--forceflush"]
@@ -416,9 +435,22 @@ def host_info():
                 addrs.append({"ifname": link.get("ifname"), "ip": a.get("local")})
     except (OSError, ValueError, subprocess.SubprocessError):
         pass
+    if not addrs:  # no `ip` command (Windows, macOS): ask the socket layer instead
+        found = set()
+        try:
+            found.update(info[4][0] for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET))
+        except OSError:
+            pass
+        try:  # the address used for outbound traffic; connecting a UDP socket sends nothing
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+                probe.connect(("192.0.2.1", 9))
+                found.add(probe.getsockname()[0])
+        except OSError:
+            pass
+        addrs = [{"ifname": "", "ip": ip} for ip in sorted(found) if not ip.startswith("127.")]
     version = None
     try:
-        version = subprocess.run(["iperf3", "--version"], capture_output=True, text=True,
+        version = subprocess.run([IPERF, "--version"], capture_output=True, text=True,
                                  timeout=3).stdout.split("\n")[0].split(" (")[0]
     except (OSError, subprocess.SubprocessError):
         pass
@@ -560,6 +592,12 @@ class Handler(BaseHTTPRequestHandler):
         self.send_body(200, {"ok": True})
 
 
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+    # On Windows, address reuse would let a second copy bind the same port silently.
+    allow_reuse_address = not WINDOWS
+
+
 def main():
     ap = argparse.ArgumentParser(description="iperf3 server with a live web dashboard")
     ap.add_argument("--listen", default="127.0.0.1",
@@ -567,10 +605,22 @@ def main():
     ap.add_argument("--port", type=int, default=8520, help="dashboard port (default 8520)")
     ap.add_argument("--iperf-port", type=int, default=5201, help="iperf3 server port (default 5201)")
     ap.add_argument("--no-autostart", action="store_true", help="do not start the iperf3 server on launch")
+    ap.add_argument("--open", action="store_true", help="open the dashboard in a browser on launch")
+    ap.add_argument("--no-browser", action="store_true", help="packaged builds: do not open a browser")
+    ap.add_argument("--version", action="version", version=f"iPerf Deck {__version__}")
     args = ap.parse_args()
 
-    if not shutil.which("iperf3"):
-        raise SystemExit("iperf3 is not installed (sudo dnf install iperf3)")
+    if not IPERF:
+        raise SystemExit("iperf3 is not installed (for example: sudo dnf install iperf3)")
+
+    url = f"http://{'127.0.0.1' if args.listen == '0.0.0.0' else args.listen}:{args.port}"
+    browse = (args.open or FROZEN) and not args.no_browser
+    try:
+        httpd = Server((args.listen, args.port), Handler)
+    except OSError as e:
+        if browse:  # most likely a second launch: show the copy that is already running
+            webbrowser.open(url)
+        raise SystemExit(f"Cannot use port {args.port} ({e}). iPerf Deck may already be running at {url}")
 
     app = App(args.iperf_port)
     Handler.app = app
@@ -580,9 +630,15 @@ def main():
         except ValueError as e:
             print(e)
 
-    httpd = ThreadingHTTPServer((args.listen, args.port), Handler)
-    httpd.daemon_threads = True
-    print(f"iPerf Deck: http://{args.listen}:{args.port}  (iperf3 server on port {args.iperf_port})", flush=True)
+    def stop(*_):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, stop)
+
+    print(f"iPerf Deck {__version__}: {url}  (iperf3 server on port {args.iperf_port})", flush=True)
+    if FROZEN:
+        print("Leave this window open while you use the dashboard. Close it to stop.", flush=True)
+    if browse:
+        threading.Timer(0.6, webbrowser.open, [url]).start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
