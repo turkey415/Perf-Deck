@@ -286,18 +286,23 @@ th:first-child, td:first-child { text-align: left; }
 .st-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
 @media (max-width: 1150px) { .st-grid { grid-template-columns: minmax(0, 1fr); } }
 .st-list { display: flex; flex-direction: column; gap: 6px; }
-.strow { display: grid; grid-template-columns: 12px minmax(170px, 1.7fr) 64px minmax(70px, 1fr) 118px 84px auto; gap: 12px; align-items: center; padding: 9px 12px; background: var(--well); border: 1px solid rgba(255, 255, 255, .06); border-radius: 8px; }
+.strow { display: grid; grid-template-columns: 12px minmax(120px, 1.7fr) 56px minmax(40px, 1fr) 104px auto auto; gap: 12px; align-items: center; padding: 9px 12px; background: var(--well); border: 1px solid rgba(255, 255, 255, .06); border-radius: 8px; }
 .strow .who b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .strow .who .k { display: block; overflow: hidden; text-overflow: ellipsis; letter-spacing: .06em; text-transform: none; }
 .strow .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .strow .num small { display: block; color: var(--muted); font-size: 11px; }
 .strow .leds i { height: 12px; --c: var(--accent); }
-.strow .btn { padding: 5px 10px; }
+.dirs { display: flex; gap: 4px; }
+.dirs button { font: 600 9.5px ui-monospace, Menlo, Consolas, monospace; letter-spacing: .1em; text-transform: uppercase; padding: 7px 9px; cursor: pointer;
+  color: var(--text-2); background: linear-gradient(#2a2a28, #1d1d1c); border: 1px solid #45453f; border-radius: 4px; box-shadow: 0 1px 0 rgba(0, 0, 0, .6); }
+.dirs button:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
+.dirs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.dirs button:disabled { color: #55544f; cursor: not-allowed; }
 .sled { width: 10px; height: 10px; border-radius: 50%; background: #3a3a37; }
 .sled.ready { background: #3ddc5a; box-shadow: 0 0 7px #3ddc5a; }
 .sled.busy { background: #fab219; box-shadow: 0 0 7px #fab219; }
 .sled.testing { background: #ff4d4d; box-shadow: 0 0 8px #ff4d4d; animation: pulse .5s steps(2, jump-none) infinite; }
-@media (max-width: 760px) { .strow { grid-template-columns: 12px minmax(0, 1fr) auto auto; } .strow .bar, .strow .ping, .strow .state { display: none; } }
+@media (max-width: 760px) { .strow { grid-template-columns: 12px minmax(0, 1fr) auto; } .strow .bar, .strow .ping, .strow .state { display: none; } .dirs { grid-column: 1 / -1; } .dirs button { flex: 1; } }
 
 .reactor { background: var(--well); border: 1px solid rgba(255, 255, 255, .06); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 11px; --rc: #fab219; }
 .reactor.ready { --rc: #3ddc5a; } .reactor.firing { --rc: #ff4d4d; } .reactor.locked { --rc: #6b6a65; } .reactor.armed { --rc: #ff8a3d; }
@@ -1117,7 +1122,8 @@ function renderStations() {
       <div class="num ping">${p.ping_ms == null ? '—' : esc(p.ping_ms < 10 ? p.ping_ms.toFixed(2) : p.ping_ms.toFixed(0))}<small>ms ping</small></div>
       <div class="leds bar">${Array.from({ length: 20 }, (_, i) => `<i${i < lit ? ' class="on"' : ''}></i>`).join('')}</div>
       <div class="num">${rate}</div><span class="k state">${word}</span>
-      <button class="btn" data-test="${p.id}"${p.running ? '' : ' disabled'}>Test</button></div>`;
+      <div class="dirs" role="group" aria-label="Test ${esc(p.name)}">${[['upload', 'Send', 'Send from this machine to this station'], ['download', 'Receive', 'This station sends to this machine'], ['both', 'Both', 'Both directions at once']]
+        .map(([d, label, tip]) => `<button type="button" data-test="${p.id}" data-dir="${d}" title="${tip}"${p.running ? '' : ' disabled'}>${label}</button>`).join('')}</div></div>`;
   }).join('') || `<div class="empty">${on ? 'Calling CQ… no other Perf-Deck stations heard yet. Any machine running Perf-Deck on this network segment appears here within a few seconds.' : 'CQ is off: this machine is not announcing itself or listening for others.'}</div>`;
   tickReactor();
 }
@@ -1170,7 +1176,9 @@ $('#ovr-form').onsubmit = async e => {
 $('#st-list').onclick = async e => {
   const b = e.target.closest('[data-test]'), p = b && st.peers.find(x => x.id === b.dataset.test);
   if (!p) return;
+  if (st.status.client.running) return;  // the form's button would stop the running test
   $('#f-host').value = p.ip; $('#f-port').value = p.port;
+  $(`input[name=dir][value=${b.dataset.dir}]`).checked = true;
   $('#runform').requestSubmit();
 };
 
