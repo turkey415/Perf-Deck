@@ -1,0 +1,11 @@
+[Unit]
+Description=iPerf Deck (iperf3 server and dashboard)
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/iperf-deck/server.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
